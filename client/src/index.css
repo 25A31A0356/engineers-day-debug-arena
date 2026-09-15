@@ -1,0 +1,395 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Cormorant+Garamond:wght@600;700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Orbitron:wght@500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;0,800;0,900;1,700&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #07090e;
+  --foreground: #f4f7fb;
+  --card: #0d121d;
+  --card-foreground: #f4f7fb;
+  --primary: #ffb800;
+  --primary-foreground: #0a0d14;
+  --cyan: #00e5ff;
+  --border: rgba(255, 184, 0, 0.15);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #ffb800;
+  --radius: 0.75rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #07090e;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #07090e;
+  color: #f4f7fb;
+  font-family: 'Space Grotesk', sans-serif;
+  overflow-x: hidden;
+}
+
+button, input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  user-select: none;
+}
+
+button:focus-visible, input:focus-visible {
+  outline: 2px solid #ffb800;
+  outline-offset: 3px;
+}
+
+/* Custom Typography */
+.font-orbitron {
+  font-family: 'Orbitron', sans-serif;
+}
+
+.font-rajdhani {
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.font-display {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.font-mono {
+  font-family: 'DM Mono', monospace;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', 'Playfair Display', serif;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', 'Cinzel', serif;
+}
+
+.font-university-serif {
+  font-family: 'Cinzel', 'Playfair Display', 'Times New Roman', serif;
+}
+
+/* Blueprint CAD Background Grid */
+.bg-blueprint {
+  background-color: #07090e;
+  background-image:
+    linear-gradient(rgba(255, 184, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 184, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(rgba(0, 229, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.02) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
+}
+
+/* Ambient Mechanical Glow */
+.ambient {
+  pointer-events: none;
+  position: fixed;
+  border-radius: 999px;
+  filter: blur(140px);
+}
+
+.ambient-gold {
+  width: 500px;
+  height: 500px;
+  left: -150px;
+  top: 180px;
+  background: #ffb800;
+  opacity: 0.07;
+}
+
+.ambient-cyan {
+  width: 450px;
+  height: 450px;
+  right: -120px;
+  top: 100px;
+  background: #00e5ff;
+  opacity: 0.06;
+}
+
+.ambient-flame {
+  width: 320px;
+  height: 320px;
+  left: 45%;
+  bottom: 10%;
+  background: #f59e0b;
+  opacity: 0.04;
+}
+
+/* Navigation Links */
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  color: #8b99ad;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+}
+
+.nav-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.nav-link-active {
+  color: #ffb800;
+  background: rgba(255, 184, 0, 0.08);
+  border-color: rgba(255, 184, 0, 0.25);
+  box-shadow: 0 0 15px rgba(255, 184, 0, 0.1);
+}
+
+/* Code Window / Inspection */
+.code-window {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  background: #05070c;
+  padding: 18px 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 30px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.code-window::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 184, 0, 0.4), transparent);
+}
+
+.code-line {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  min-height: 29px;
+  padding: 0 18px;
+  align-items: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #d1d9e6;
+  transition: background 0.15s ease;
+}
+
+.code-line:hover {
+  background: rgba(255, 184, 0, 0.03);
+}
+
+.code-number {
+  color: #48576d;
+  user-select: none;
+  font-size: 11px;
+}
+
+.code-comment {
+  color: #63768d;
+  font-style: italic;
+}
+
+.code-keyword {
+  color: #ffb800;
+  font-weight: 500;
+}
+
+.code-string {
+  color: #00e5ff;
+}
+
+.code-function {
+  color: #a78bfa;
+}
+
+.code-number-val {
+  color: #f472b6;
+}
+
+/* Answer Cards with Hydraulic Hover */
+.answer-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(15, 20, 31, 0.7);
+  padding: 15px 18px;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  backdrop-blur: 10px;
+}
+
+.answer-card:hover {
+  transform: translateX(4px);
+  border-color: rgba(255, 184, 0, 0.3);
+  background: rgba(255, 184, 0, 0.04);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.answer-card-selected {
+  border-color: rgba(255, 184, 0, 0.8) !important;
+  background: rgba(255, 184, 0, 0.09) !important;
+  box-shadow: 0 0 25px rgba(255, 184, 0, 0.15) !important;
+}
+
+.answer-key {
+  display: grid;
+  height: 32px;
+  width: 32px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #8c9cb0;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.answer-key-selected {
+  border-color: #ffb800;
+  color: #07090e;
+  background: #ffb800;
+  box-shadow: 0 0 10px rgba(255, 184, 0, 0.4);
+}
+
+/* Difficulties */
+.difficulty-easy {
+  color: #4ade80;
+}
+
+.difficulty-medium {
+  color: #ffb800;
+}
+
+.difficulty-hard {
+  color: #f87171;
+}
+
+/* Olympic Medals Glow */
+.medal-gold {
+  color: #ffd700;
+  text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.medal-silver {
+  color: #e2e8f0;
+  text-shadow: 0 0 15px rgba(226, 232, 240, 0.4);
+}
+
+.medal-bronze {
+  color: #cd7f32;
+  text-shadow: 0 0 15px rgba(205, 127, 50, 0.4);
+}
+
+/* Rotating Gear Animations */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-gear-slow {
+  animation: spin-slow 35s linear infinite;
+}
+
+.animate-gear-reverse {
+  animation: spin-reverse 25s linear infinite;
+}
+
+/* Telemetry Gauge Pulse */
+@keyframes telemetry-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.animate-telemetry {
+  animation: telemetry-pulse 3s ease-in-out infinite;
+}
+
+/* Chamfered Industrial Card */
+.chamfered-card {
+  clip-path: polygon(
+    0 12px,
+    12px 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #07090e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ffb800;
+}
+
+@media (max-width: 640px) {
+  .code-line {
+    grid-template-columns: 36px 1fr;
+    padding: 0 12px;
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
