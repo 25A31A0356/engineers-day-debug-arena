@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 import { createApiRouter } from "./api";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,16 +18,24 @@ async function startServer() {
   app.use("/api", createApiRouter());
 
   // Serve static files from dist/public in production
-  const staticPath =
-    process.env.NODE_ENV === "production"
-      ? path.resolve(__dirname, "public")
-      : path.resolve(__dirname, "..", "dist", "public");
+  const possiblePaths = [
+    path.resolve(__dirname, "public"),
+    path.resolve(__dirname, "..", "dist", "public"),
+    path.resolve(process.cwd(), "dist", "public"),
+    path.resolve(process.cwd(), "public"),
+  ];
+  const staticPath = possiblePaths.find((p) => fs.existsSync(p)) || possiblePaths[0];
 
   app.use(express.static(staticPath));
 
   // Handle client-side routing - serve index.html for all routes
   app.get("*", (_req, res) => {
-    res.sendFile(path.join(staticPath, "index.html"));
+    const indexPath = path.join(staticPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send("Frontend build not found. Please run npm run build.");
+    }
   });
 
   const port = process.env.PORT || 3000;
