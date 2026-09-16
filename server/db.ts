@@ -25,8 +25,11 @@ export type AttemptStatus =
   | "RESET";
 
 export interface ShuffledQuestionOptionMapping {
+  question_id?: string;
   display_options: { id: "A" | "B" | "C" | "D"; text: string }[];
   correct_display_id: "A" | "B" | "C" | "D"; // Stored strictly server-side, NEVER sent to contestant
+  display_to_original?: Record<string, string>;
+  original_to_display?: Record<string, string>;
 }
 
 export interface Attempt {
@@ -281,7 +284,7 @@ class ContestDatabase {
           id: crypto.randomUUID(),
           timestamp: new Date().toISOString(),
           event_type: "CONTEST_STATUS_CHANGED",
-          details: `Contest database initialized with master question bank (${MASTER_QUESTION_POOL.length} total questions: ${EASY_POOL.length} Easy, ${MEDIUM_POOL.length} Medium, ${HARD_POOL.length} Hard). 15-min timer, negative marking enabled.`
+          details: `Contest database initialized with master question bank (${MASTER_QUESTION_POOL.length} total questions: ${MASTER_QUESTION_POOL.filter((q) => q.difficulty === "EASY").length} Easy, ${MASTER_QUESTION_POOL.filter((q) => q.difficulty === "MEDIUM").length} Medium, ${MASTER_QUESTION_POOL.filter((q) => q.difficulty === "HARD").length} Hard). 15-min timer, negative marking enabled.`
         }
       ],
       questions: MASTER_QUESTION_POOL
@@ -640,7 +643,7 @@ class ContestDatabase {
 
         const displayOptions = rawOptions.map((opt, oIdx) => {
           const displayLetter = letters[oIdx];
-          if (opt.id === q.correct_answer) {
+          if (opt.id === q.correct_option_id) {
             correctDisplayId = displayLetter;
           }
           return {
@@ -793,6 +796,7 @@ class ContestDatabase {
     success: boolean;
     hint?: string;
     hints_used_count?: number;
+    hint_penalty_total?: number;
     total_hint_penalty?: number;
     message: string;
   } {
