@@ -68,8 +68,8 @@ interface Question {
 const OFFICIAL_RULES_LIST = [
   "This is an official Engineering Olympics competition.",
   "You have ONE attempt only.",
-  "Total time is 10 MINUTES (600 seconds).",
-  "There are exactly 10 questions (3 Simple, 3 Medium, 4 Hard).",
+  "Total time is 15 MINUTES (900 seconds).",
+  "There are exactly 10 questions (5 C + 5 Python = 3 Simple, 3 Medium, 4 Hard).",
   "Scoring Rules (Maximum Score = 21, Minimum Theoretical = -5.5):",
   "• Simple (3 Questions): +1 for correct, 0 for wrong, 0 for unanswered.",
   "• Medium (3 Questions): +2 for correct, -0.5 negative penalty for wrong, 0 for unanswered.",
@@ -118,8 +118,8 @@ export function ContestMobileScreen() {
   const [unlockedHints, setUnlockedHints] = useState<Record<string, string>>({});
   const [hintUsageCounts, setHintUsageCounts] = useState<Record<string, number>>({});
 
-  // Timer & Security Monitoring (10 Minutes = 600s)
-  const [remainingSeconds, setRemainingSeconds] = useState(10 * 60);
+  // Timer & Security Monitoring (15 Minutes = 900s)
+  const [remainingSeconds, setRemainingSeconds] = useState(15 * 60);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [backModalOpen, setBackModalOpen] = useState(false);
@@ -673,7 +673,7 @@ export function ContestMobileScreen() {
 
           <div className="text-xs sm:text-sm text-slate-300 space-y-3">
             <p className="text-slate-300">
-              This contest requires a stable internet connection throughout the 10-minute examination.
+              This contest requires a stable internet connection throughout the 15-minute examination.
             </p>
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2.5 font-medium">
               <div className="flex items-center gap-2 text-emerald-400">
@@ -690,7 +690,7 @@ export function ContestMobileScreen() {
               </div>
             </div>
             <p className="text-[11px] text-slate-400 italic">
-              If your connection is unstable, answers may take longer to synchronize. The original server-side 10-minute expiry time remains unchanged.
+              If your connection is unstable, answers may take longer to synchronize. The original server-side 15-minute expiry time remains unchanged.
             </p>
           </div>
 
@@ -720,7 +720,7 @@ export function ContestMobileScreen() {
               OFFICIAL CONTEST RULES
             </h2>
             <p className="text-xs text-amber-400 font-semibold">
-              Read all rules carefully before initiating the 10-minute timer
+              Read all rules carefully before initiating the 15-minute timer
             </p>
           </div>
 

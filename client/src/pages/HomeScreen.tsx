@@ -222,7 +222,7 @@ export function HomeScreen() {
               </div>
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Official 10-minute examination contest for 100+ contestants. Solve 10 beginner-friendly C and Python debugging questions with clear Expected Outputs. 100% server-authoritative scoring and anti-cheat protection.
+                Official 15-minute examination contest for 100+ contestants. Solve 10 C and Python debugging questions (5 C + 5 Python = 3 Simple, 3 Medium, 4 Hard) with clear Expected Outputs. 100% server-authoritative scoring and anti-cheat protection.
               </p>
 
               {/* Quick Specs Badges */}
@@ -369,7 +369,7 @@ export function HomeScreen() {
                     ENGINEERING OLYMPICS
                   </h4>
                   <p className="text-xs text-slate-300 mt-1">
-                    "Debug The Code" 10-minute challenge. 10 simple C & Python questions with expected output & live scoring.
+                    "Debug The Code" 15-minute challenge. 10 C & Python questions with expected output & live scoring.
                   </p>
                 </div>
               </div>
@@ -719,7 +719,7 @@ export function HomeScreen() {
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-amber-300 font-semibold flex items-start gap-2">
                 <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
                 <span>
-                  All 100+ contestants must strictly adhere to the examination rules. The contest runs on a server-authoritative 10-minute countdown (600s).
+                  All 100+ contestants must strictly adhere to the examination rules. The contest runs on a server-authoritative 15-minute countdown (900s).
                 </span>
               </div>
 
@@ -730,8 +730,8 @@ export function HomeScreen() {
                 
                 <ol className="list-decimal pl-5 space-y-1.5 text-slate-300">
                   <li><strong>Single Attempt Rule:</strong> Each registered Roll Number is strictly permitted exactly ONE contest attempt.</li>
-                  <li><strong>Strict 10-Minute Timer:</strong> The countdown clock (600s) runs on the server backend and cannot be paused or reset. Auto-submits at 00:00.</li>
-                  <li><strong>Question Composition & Negative Marking:</strong> Exactly 10 questions (3 Simple = +1 pt, 3 Medium = +2 pts [-0.5 wrong], 4 Hard = +3 pts [-1.0 wrong]). Maximum total score: 21 Points (Minimum: -5.5). Unanswered questions receive 0.</li>
+                  <li><strong>Strict 15-Minute Timer:</strong> The countdown clock (900s) runs on the server backend and cannot be paused or reset. Auto-submits at 00:00.</li>
+                  <li><strong>Question Composition & Negative Marking:</strong> Exactly 10 questions (5 C + 5 Python = 3 Simple [+1 pt], 3 Medium [+2 pts, -0.5 wrong], 4 Hard [+3 pts, -1.0 wrong]). Maximum total score: 21 Points (Minimum: -5.5). Unanswered questions receive 0.</li>
                   <li><strong>Expected Output Display:</strong> Every question displays the target <strong>Expected Output</strong> and current <strong>Buggy Output</strong> alongside the code snippet.</li>
                   <li><strong>Hard Question Hints:</strong> Hints are available ONLY on Hard questions. Unlocking a hint incurs a <strong>1 credit (-1 point) penalty</strong> per use. Repeated requests on the same Hard question cost an additional -1 point each.</li>
                   <li><strong>Anti-Cheat & Tab Monitoring:</strong> Leaving the exam window or switching tabs/apps records a security violation. 3 violations auto-terminates the attempt.</li>
@@ -743,7 +743,7 @@ export function HomeScreen() {
               </div>
 
               <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 space-y-1">
-                <div className="text-[11px] font-bold text-white uppercase">Scoring Matrix (10 Questions / 10 Minutes — Max: 21 Pts):</div>
+                <div className="text-[11px] font-bold text-white uppercase">Scoring Matrix (10 Questions / 15 Minutes — Max: 21 Pts):</div>
                 <div className="grid grid-cols-3 gap-2 text-center text-[11px] pt-1">
                   <div className="bg-slate-900 p-1.5 rounded border border-slate-800">
                     <span className="text-emerald-400 font-bold">3 Simple</span>: +1 correct, 0 wrong

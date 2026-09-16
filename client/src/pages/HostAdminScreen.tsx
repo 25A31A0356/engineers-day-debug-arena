@@ -1550,7 +1550,7 @@ export function HostAdminScreen() {
                   <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black flex items-center justify-center shrink-0">
                     3
                   </div>
-                  <span>Read the 22 rules and start your official 10-minute exam</span>
+                  <span>Read the 22 rules and start your official 15-minute exam</span>
                 </div>
               </div>
 

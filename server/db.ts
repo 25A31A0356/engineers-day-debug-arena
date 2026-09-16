@@ -172,26 +172,59 @@ const DEFAULT_RELEASE_KEY_HASH = hashKey("BOOYAHBOY");
 const MASTER_QUESTION_POOL: QuestionDef[] = generateQuestionBank();
 const QUESTION_MAP: Map<string, QuestionDef> = new Map(MASTER_QUESTION_POOL.map((q) => [q.id, q]));
 
-// Distinct family pools by difficulty
-const EASY_FAMILIES = new Map<string, QuestionDef[]>();
-const MEDIUM_FAMILIES = new Map<string, QuestionDef[]>();
-const HARD_FAMILIES = new Map<string, QuestionDef[]>();
+// Distinct family pools partitioned by Language and Difficulty
+const EASY_C_FAMILIES = new Map<string, QuestionDef[]>();
+const EASY_PY_FAMILIES = new Map<string, QuestionDef[]>();
+const MEDIUM_C_FAMILIES = new Map<string, QuestionDef[]>();
+const MEDIUM_PY_FAMILIES = new Map<string, QuestionDef[]>();
+const HARD_C_FAMILIES = new Map<string, QuestionDef[]>();
+const HARD_PY_FAMILIES = new Map<string, QuestionDef[]>();
 
 for (const q of MASTER_QUESTION_POOL) {
-  const map = q.difficulty === "EASY" ? EASY_FAMILIES : q.difficulty === "MEDIUM" ? MEDIUM_FAMILIES : HARD_FAMILIES;
-  if (!map.has(q.question_family_id)) {
-    map.set(q.question_family_id, []);
+  const isC = q.language === "c";
+  if (q.difficulty === "EASY") {
+    const map = isC ? EASY_C_FAMILIES : EASY_PY_FAMILIES;
+    if (!map.has(q.question_family_id)) map.set(q.question_family_id, []);
+    map.get(q.question_family_id)!.push(q);
+  } else if (q.difficulty === "MEDIUM") {
+    const map = isC ? MEDIUM_C_FAMILIES : MEDIUM_PY_FAMILIES;
+    if (!map.has(q.question_family_id)) map.set(q.question_family_id, []);
+    map.get(q.question_family_id)!.push(q);
+  } else {
+    const map = isC ? HARD_C_FAMILIES : HARD_PY_FAMILIES;
+    if (!map.has(q.question_family_id)) map.set(q.question_family_id, []);
+    map.get(q.question_family_id)!.push(q);
   }
-  map.get(q.question_family_id)!.push(q);
 }
 
-const EASY_FAMILY_KEYS = Array.from(EASY_FAMILIES.keys());
-const MEDIUM_FAMILY_KEYS = Array.from(MEDIUM_FAMILIES.keys());
-const HARD_FAMILY_KEYS = Array.from(HARD_FAMILIES.keys());
+const EASY_C_KEYS = Array.from(EASY_C_FAMILIES.keys());
+const EASY_PY_KEYS = Array.from(EASY_PY_FAMILIES.keys());
+const MEDIUM_C_KEYS = Array.from(MEDIUM_C_FAMILIES.keys());
+const MEDIUM_PY_KEYS = Array.from(MEDIUM_PY_FAMILIES.keys());
+const HARD_C_KEYS = Array.from(HARD_C_FAMILIES.keys());
+const HARD_PY_KEYS = Array.from(HARD_PY_FAMILIES.keys());
 
-const EASY_POOL = MASTER_QUESTION_POOL.filter((q) => q.difficulty === "EASY");
-const MEDIUM_POOL = MASTER_QUESTION_POOL.filter((q) => q.difficulty === "MEDIUM");
-const HARD_POOL = MASTER_QUESTION_POOL.filter((q) => q.difficulty === "HARD");
+interface DistributionPlan {
+  easyC: number;
+  easyPy: number;
+  medC: number;
+  medPy: number;
+  hardC: number;
+  hardPy: number;
+}
+
+// Dual-Constraint Language + Difficulty Allocation Patterns:
+// Guarantees: 5 C + 5 Python = 3 Simple + 3 Medium + 4 Hard = 10 Questions
+const DISTRIBUTION_PATTERNS: DistributionPlan[] = [
+  // Pattern 0: Easy(2C, 1Py), Med(1C, 2Py), Hard(2C, 2Py) => 5C, 5Py (3 Easy, 3 Med, 4 Hard)
+  { easyC: 2, easyPy: 1, medC: 1, medPy: 2, hardC: 2, hardPy: 2 },
+  // Pattern 1: Easy(1C, 2Py), Med(2C, 1Py), Hard(2C, 2Py) => 5C, 5Py (3 Easy, 3 Med, 4 Hard)
+  { easyC: 1, easyPy: 2, medC: 2, medPy: 1, hardC: 2, hardPy: 2 },
+  // Pattern 2: Easy(2C, 1Py), Med(2C, 1Py), Hard(1C, 3Py) => 5C, 5Py (3 Easy, 3 Med, 4 Hard)
+  { easyC: 2, easyPy: 1, medC: 2, medPy: 1, hardC: 1, hardPy: 3 },
+  // Pattern 3: Easy(1C, 2Py), Med(1C, 2Py), Hard(3C, 1Py) => 5C, 5Py (3 Easy, 3 Med, 4 Hard)
+  { easyC: 1, easyPy: 2, medC: 1, medPy: 2, hardC: 3, hardPy: 1 }
+];
 
 class ContestDatabase {
   private data: DatabaseSchema;
@@ -222,7 +255,7 @@ class ContestDatabase {
         venue: "MG-7 CORE BLOCK",
         date: "16 SEPTEMBER 2026",
         time_window: "2:00 PM – 4:00 PM",
-        duration_minutes: 10,
+        duration_minutes: 15,
         is_active: true,
         results_released: false,
         max_tab_switches: 3,
@@ -248,7 +281,7 @@ class ContestDatabase {
           id: crypto.randomUUID(),
           timestamp: new Date().toISOString(),
           event_type: "CONTEST_STATUS_CHANGED",
-          details: `Contest database initialized with master question bank (${MASTER_QUESTION_POOL.length} total questions: ${EASY_POOL.length} Easy, ${MEDIUM_POOL.length} Medium, ${HARD_POOL.length} Hard). 10-min timer, negative marking enabled.`
+          details: `Contest database initialized with master question bank (${MASTER_QUESTION_POOL.length} total questions: ${EASY_POOL.length} Easy, ${MEDIUM_POOL.length} Medium, ${HARD_POOL.length} Hard). 15-min timer, negative marking enabled.`
         }
       ],
       questions: MASTER_QUESTION_POOL
@@ -262,9 +295,9 @@ class ContestDatabase {
         const parsed = JSON.parse(raw) as DatabaseSchema;
         // Always refresh questions pool from MASTER_QUESTION_POOL
         parsed.questions = MASTER_QUESTION_POOL;
-        // Ensure duration is updated to 10 mins
+        // Ensure duration is updated to 15 mins
         if (parsed.config) {
-          parsed.config.duration_minutes = 10;
+          parsed.config.duration_minutes = 15;
           parsed.config.hint_penalty_points = 1;
         }
         return parsed;
@@ -432,52 +465,43 @@ class ContestDatabase {
   }
 
   // --- Multi-Participant Unique Question Assignment Engine with Zero Family Repetition ---
-  // Guarantees:
-  // 1. Each contestant receives exactly 10 questions (3 Simple, 3 Medium, 4 Hard).
-  // 2. Each contestant receives questions from exactly 10 DISTINCT Question Families (Set size = 10).
-  // 3. A contestant NEVER receives two questions from the same Question Family.
+  // Mandatory Dual Constraints:
+  // 1. Exactly 5 C Questions + 5 Python Questions.
+  // 2. Exactly 3 Simple Questions + 3 Medium Questions + 4 Hard Questions.
+  // 3. Exactly 10 DISTINCT Question Families (Zero Family Repetition per contestant).
   // 4. Staggered variant distribution across families ensures maximum cross-contestant uniqueness.
   public assignUniqueQuestionsForAttempt(attemptIndex: number, rollNumber: string): string[] {
     const k = attemptIndex;
+    const plan = DISTRIBUTION_PATTERNS[k % DISTRIBUTION_PATTERNS.length];
     const assignedIds: string[] = [];
     const usedFamilies = new Set<string>();
 
-    // 1. 3 Easy Questions from 3 Distinct Easy Families (1 pt each)
-    const eFamCount = EASY_FAMILY_KEYS.length;
-    for (let i = 0; i < 3; i++) {
-      const famKey = EASY_FAMILY_KEYS[(k * 3 + i) % eFamCount];
-      const variants = EASY_FAMILIES.get(famKey)!;
-      const variantIdx = Math.floor((k * 3 + i) / eFamCount) % variants.length;
-      const selected = variants[variantIdx];
-      assignedIds.push(selected.id);
-      usedFamilies.add(selected.question_family_id);
-    }
+    const pickFromPool = (keys: string[], familyMap: Map<string, QuestionDef[]>, count: number, offsetMultiplier: number) => {
+      for (let i = 0; i < count; i++) {
+        const famKey = keys[(k * offsetMultiplier + i) % keys.length];
+        const variants = familyMap.get(famKey)!;
+        const variantIdx = Math.floor((k * offsetMultiplier + i) / keys.length) % variants.length;
+        const selected = variants[variantIdx];
+        assignedIds.push(selected.id);
+        usedFamilies.add(selected.question_family_id);
+      }
+    };
 
-    // 2. 3 Medium Questions from 3 Distinct Medium Families (2 pts each)
-    const mFamCount = MEDIUM_FAMILY_KEYS.length;
-    for (let i = 0; i < 3; i++) {
-      const famKey = MEDIUM_FAMILY_KEYS[(k * 3 + i) % mFamCount];
-      const variants = MEDIUM_FAMILIES.get(famKey)!;
-      const variantIdx = Math.floor((k * 3 + i) / mFamCount) % variants.length;
-      const selected = variants[variantIdx];
-      assignedIds.push(selected.id);
-      usedFamilies.add(selected.question_family_id);
-    }
+    // 1. Easy Questions (Total = 3: plan.easyC + plan.easyPy)
+    pickFromPool(EASY_C_KEYS, EASY_C_FAMILIES, plan.easyC, 3);
+    pickFromPool(EASY_PY_KEYS, EASY_PY_FAMILIES, plan.easyPy, 3);
 
-    // 3. 4 Hard Questions from 4 Distinct Hard Families (3 pts each)
-    const hFamCount = HARD_FAMILY_KEYS.length;
-    for (let i = 0; i < 4; i++) {
-      const famKey = HARD_FAMILY_KEYS[(k * 4 + i) % hFamCount];
-      const variants = HARD_FAMILIES.get(famKey)!;
-      const variantIdx = Math.floor((k * 4 + i) / hFamCount) % variants.length;
-      const selected = variants[variantIdx];
-      assignedIds.push(selected.id);
-      usedFamilies.add(selected.question_family_id);
-    }
+    // 2. Medium Questions (Total = 3: plan.medC + plan.medPy)
+    pickFromPool(MEDIUM_C_KEYS, MEDIUM_C_FAMILIES, plan.medC, 3);
+    pickFromPool(MEDIUM_PY_KEYS, MEDIUM_PY_FAMILIES, plan.medPy, 3);
 
-    // Quality check invariant
+    // 3. Hard Questions (Total = 4: plan.hardC + plan.hardPy)
+    pickFromPool(HARD_C_KEYS, HARD_C_FAMILIES, plan.hardC, 4);
+    pickFromPool(HARD_PY_KEYS, HARD_PY_FAMILIES, plan.hardPy, 4);
+
+    // Invariant quality check: exactly 10 questions, exactly 10 distinct families
     if (assignedIds.length !== 10 || usedFamilies.size !== 10) {
-      console.error(`CRITICAL: Invariant violated in question assignment! IDs: ${assignedIds.length}, Distinct Families: ${usedFamilies.size}`);
+      console.error(`CRITICAL: Invariant violated! IDs: ${assignedIds.length}, Distinct Families: ${usedFamilies.size}`);
     }
 
     return assignedIds;
@@ -585,7 +609,7 @@ class ContestDatabase {
       };
     }
 
-    const durationSeconds = (this.data.config.duration_minutes || 10) * 60; // 10 minutes = 600 seconds
+    const durationSeconds = (this.data.config.duration_minutes || 15) * 60; // 15 minutes = 900 seconds
     const startTime = new Date();
     const expiryTime = new Date(startTime.getTime() + durationSeconds * 1000);
 
@@ -614,25 +638,36 @@ class ContestDatabase {
         const letters: ("A" | "B" | "C" | "D")[] = ["A", "B", "C", "D"];
         let correctDisplayId: "A" | "B" | "C" | "D" = "A";
 
-        const displayOptions = rawOptions.map((opt, idx) => {
-          const letter = letters[idx];
-          if (opt.id === q.correct_option_id) {
-            correctDisplayId = letter;
+        const displayOptions = rawOptions.map((opt, oIdx) => {
+          const displayLetter = letters[oIdx];
+          if (opt.id === q.correct_answer) {
+            correctDisplayId = displayLetter;
           }
           return {
-            id: letter,
+            id: displayLetter,
             text: opt.text
           };
         });
 
-        shuffledOptions[q.id] = {
+        const displayToOriginal: Record<string, string> = {};
+        const originalToDisplay: Record<string, string> = {};
+        displayOptions.forEach((dOpt, oIdx) => {
+          const originalId = rawOptions[oIdx].id;
+          displayToOriginal[dOpt.id] = originalId;
+          originalToDisplay[originalId] = dOpt.id;
+        });
+
+        shuffledOptions[qId] = {
+          question_id: qId,
           display_options: displayOptions,
-          correct_display_id: correctDisplayId
+          correct_display_id: correctDisplayId,
+          display_to_original: displayToOriginal,
+          original_to_display: originalToDisplay
         };
       }
     }
 
-    const attemptId = `ATT-${Date.now()}-${roll.slice(-4)}`;
+    const attemptId = `ATT-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const attempt: Attempt = {
       attempt_id: attemptId,
       registration_id: verify.registration.registration_id,
@@ -673,7 +708,7 @@ class ContestDatabase {
     this.data.registrations[roll].status = "ATTEMPTED";
     this.saveDatabase();
 
-    this.logAudit("CONTEST_STARTED", `Contestant ${roll} started official 10-minute contest with ${assignedQuestionIds.length} unique questions assigned. Expiry: ${expiryTime.toLocaleTimeString()}`, roll, attemptId, { ip: client_ip });
+    this.logAudit("CONTEST_STARTED", `Contestant ${roll} started official 15-minute contest with ${assignedQuestionIds.length} unique questions assigned. Expiry: ${expiryTime.toLocaleTimeString()}`, roll, attemptId, { ip: client_ip });
 
     return {
       success: true,
