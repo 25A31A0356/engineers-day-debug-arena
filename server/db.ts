@@ -35,25 +35,30 @@ export interface Attempt {
   roll_number: string;
   contest_id: string;
   started_at: string;
-  expires_at: string; // Server authoritative 15-minute expiry
+  expires_at: string; // Server authoritative 10-minute expiry (600s)
   submitted_at: string | null;
   status: AttemptStatus;
   assigned_question_ids: string[]; // 10 dedicated non-overlapping question IDs
   shuffled_options?: Record<string, ShuffledQuestionOptionMapping>; // question_id -> ShuffledQuestionOptionMapping
   answers: Record<string, string>; // question_id -> chosen display option ("A" | "B" | "C" | "D")
-  hints_used: Record<string, boolean>; // question_id -> boolean
+  hints_used: Record<string, number>; // question_id -> number of times hint was requested on this question
+  hint_penalty_total: number; // Total hint penalties deducted (-1 per hint use)
   tab_switch_count: number;
   back_button_triggers: number;
-  score: number;
-  max_score: number;
-  correct_count: number;
-  difficulty_score: number; // Simple(1) + Medium(2) + Hard(3) = Max 21
-  simple_correct: number; // 0..3
-  medium_correct: number; // 0..3
-  hard_correct: number; // 0..4
+  score: number; // Final Calculated Score: Correct Points - Negative Penalties - Hint Penalties (Max 21, Min -5.5)
+  max_score: number; // 21
+  correct_count: number; // 0..10
+  correct_points: number; // Positive points earned (+1/+2/+3)
+  negative_marking_penalty: number; // Negative penalties accrued (-0.5 for Med wrong, -1.0 for Hard wrong)
+  difficulty_score: number; // Alias for final score / difficulty points for leaderboard compatibility
+  simple_correct: number; // 0..3 (+1 each)
+  simple_wrong: number; // 0..3 (0 penalty)
+  medium_correct: number; // 0..3 (+2 each)
+  medium_wrong: number; // 0..3 (-0.5 penalty each)
+  hard_correct: number; // 0..4 (+3 each)
+  hard_wrong: number; // 0..4 (-1.0 penalty each)
   incorrect_count: number;
   unanswered_count: number;
-  hint_penalty_total: number;
   time_taken_seconds: number;
   client_ip?: string;
   user_agent?: string;
@@ -217,11 +222,11 @@ class ContestDatabase {
         venue: "MG-7 CORE BLOCK",
         date: "16 SEPTEMBER 2026",
         time_window: "2:00 PM – 4:00 PM",
-        duration_minutes: 15,
+        duration_minutes: 10,
         is_active: true,
         results_released: false,
         max_tab_switches: 3,
-        hint_penalty_points: 5,
+        hint_penalty_points: 1,
         allow_registration: true,
         reset_key_hash: DEFAULT_RESET_KEY_HASH,
         release_key_hash: DEFAULT_RELEASE_KEY_HASH
@@ -243,7 +248,7 @@ class ContestDatabase {
           id: crypto.randomUUID(),
           timestamp: new Date().toISOString(),
           event_type: "CONTEST_STATUS_CHANGED",
-          details: `Contest database initialized with master question bank (${MASTER_QUESTION_POOL.length} total questions: ${EASY_POOL.length} Easy, ${MEDIUM_POOL.length} Medium, ${HARD_POOL.length} Hard).`
+          details: `Contest database initialized with master question bank (${MASTER_QUESTION_POOL.length} total questions: ${EASY_POOL.length} Easy, ${MEDIUM_POOL.length} Medium, ${HARD_POOL.length} Hard). 10-min timer, negative marking enabled.`
         }
       ],
       questions: MASTER_QUESTION_POOL
@@ -257,6 +262,11 @@ class ContestDatabase {
         const parsed = JSON.parse(raw) as DatabaseSchema;
         // Always refresh questions pool from MASTER_QUESTION_POOL
         parsed.questions = MASTER_QUESTION_POOL;
+        // Ensure duration is updated to 10 mins
+        if (parsed.config) {
+          parsed.config.duration_minutes = 10;
+          parsed.config.hint_penalty_points = 1;
+        }
         return parsed;
       }
     } catch (e) {
@@ -432,7 +442,7 @@ class ContestDatabase {
     const assignedIds: string[] = [];
     const usedFamilies = new Set<string>();
 
-    // 1. 3 Easy Questions from 3 Distinct Easy Families
+    // 1. 3 Easy Questions from 3 Distinct Easy Families (1 pt each)
     const eFamCount = EASY_FAMILY_KEYS.length;
     for (let i = 0; i < 3; i++) {
       const famKey = EASY_FAMILY_KEYS[(k * 3 + i) % eFamCount];
@@ -443,7 +453,7 @@ class ContestDatabase {
       usedFamilies.add(selected.question_family_id);
     }
 
-    // 2. 3 Medium Questions from 3 Distinct Medium Families
+    // 2. 3 Medium Questions from 3 Distinct Medium Families (2 pts each)
     const mFamCount = MEDIUM_FAMILY_KEYS.length;
     for (let i = 0; i < 3; i++) {
       const famKey = MEDIUM_FAMILY_KEYS[(k * 3 + i) % mFamCount];
@@ -454,7 +464,7 @@ class ContestDatabase {
       usedFamilies.add(selected.question_family_id);
     }
 
-    // 3. 4 Hard Questions from 4 Distinct Hard Families
+    // 3. 4 Hard Questions from 4 Distinct Hard Families (3 pts each)
     const hFamCount = HARD_FAMILY_KEYS.length;
     for (let i = 0; i < 4; i++) {
       const famKey = HARD_FAMILY_KEYS[(k * 4 + i) % hFamCount];
@@ -546,8 +556,10 @@ class ContestDatabase {
       status: attempt.status,
       started_at: attempt.started_at,
       expires_at: attempt.expires_at,
+      max_score: attempt.max_score || 21,
       answers: attempt.answers,
       hints_used: attempt.hints_used,
+      hint_penalty_total: attempt.hint_penalty_total || 0,
       tab_switch_count: attempt.tab_switch_count
     };
   }
@@ -573,7 +585,7 @@ class ContestDatabase {
       };
     }
 
-    const durationSeconds = (this.data.config.duration_minutes || 15) * 60;
+    const durationSeconds = (this.data.config.duration_minutes || 10) * 60; // 10 minutes = 600 seconds
     const startTime = new Date();
     const expiryTime = new Date(startTime.getTime() + durationSeconds * 1000);
 
@@ -637,12 +649,17 @@ class ContestDatabase {
       tab_switch_count: 0,
       back_button_triggers: 0,
       score: 0,
-      max_score: 155,
+      max_score: 21,
       correct_count: 0,
+      correct_points: 0,
+      negative_marking_penalty: 0,
       difficulty_score: 0,
       simple_correct: 0,
+      simple_wrong: 0,
       medium_correct: 0,
+      medium_wrong: 0,
       hard_correct: 0,
+      hard_wrong: 0,
       incorrect_count: 0,
       unanswered_count: 0,
       hint_penalty_total: 0,
@@ -656,7 +673,7 @@ class ContestDatabase {
     this.data.registrations[roll].status = "ATTEMPTED";
     this.saveDatabase();
 
-    this.logAudit("CONTEST_STARTED", `Contestant ${roll} started official 15-minute contest with ${assignedQuestionIds.length} unique questions assigned. Expiry: ${expiryTime.toLocaleTimeString()}`, roll, attemptId, { ip: client_ip });
+    this.logAudit("CONTEST_STARTED", `Contestant ${roll} started official 10-minute contest with ${assignedQuestionIds.length} unique questions assigned. Expiry: ${expiryTime.toLocaleTimeString()}`, roll, attemptId, { ip: client_ip });
 
     return {
       success: true,
@@ -666,7 +683,7 @@ class ContestDatabase {
     };
   }
 
-  // Returns only the 10 questions assigned to a specific attempt (without answers, language, or difficulty metadata)
+  // Returns only the 10 questions assigned to a specific attempt (without answers or solution leaks)
   public getAttemptPublicQuestions(attempt_id: string) {
     const attempt = this.data.attempts[attempt_id];
     if (!attempt || !attempt.assigned_question_ids) {
@@ -687,18 +704,24 @@ class ContestDatabase {
         .replace(/\b(Python program|C program|Python script|C function)\b/gi, "program")
         .trim();
 
+      const hintUses = attempt.hints_used?.[q.id] || 0;
+      const isHard = q.difficulty === "HARD";
+
       return {
         id: q.id,
         number: idx + 1,
+        difficulty: q.difficulty,
         topic: q.topic,
-        points: q.points,
+        points: q.points, // 1, 2, or 3
         title: cleanTitle,
         description: cleanDescription,
         code_snippet: q.code_snippet,
         expected_output: q.expected_output,
         current_output: q.current_output,
         options: options.map((o) => ({ id: o.id, text: o.text })),
-        has_hint: false
+        has_hint: isHard,
+        hints_used_count: hintUses,
+        unlocked_hint: hintUses > 0 && isHard ? q.hint : null
       };
     });
   }
@@ -714,6 +737,7 @@ class ContestDatabase {
       return {
         id: q.id,
         number: idx + 1,
+        difficulty: q.difficulty,
         topic: q.topic,
         points: q.points,
         title: cleanTitle,
@@ -722,13 +746,68 @@ class ContestDatabase {
         expected_output: q.expected_output,
         current_output: q.current_output,
         options: q.options.map((o) => ({ id: o.id, text: o.text })),
-        has_hint: false
+        has_hint: q.difficulty === "HARD",
+        hints_used_count: 0,
+        unlocked_hint: null
       };
     });
   }
 
-  public getHint(attempt_id: string, question_id: string): { success: boolean; hint?: string; message: string } {
-    return { success: false, message: "Hints are disabled for this competitive contest." };
+  // Hint System: Hard Questions ONLY with -1 Credit Penalty per Use
+  public getHint(attempt_id: string, question_id: string): {
+    success: boolean;
+    hint?: string;
+    hints_used_count?: number;
+    total_hint_penalty?: number;
+    message: string;
+  } {
+    const attempt = this.data.attempts[attempt_id];
+    if (!attempt || (attempt.status !== "ACTIVE" && attempt.status !== "STARTED")) {
+      return { success: false, message: "Contest session is closed or inactive." };
+    }
+
+    if (Date.now() >= new Date(attempt.expires_at).getTime()) {
+      this.finalizeAttempt(attempt_id, "TIME_EXPIRED");
+      return { success: false, message: "Contest timer has expired. Hints cannot be requested." };
+    }
+
+    const q = this.questionMap.get(question_id);
+    if (!q) {
+      return { success: false, message: "Question not found." };
+    }
+
+    // Enforce Hard questions ONLY rule
+    if (q.difficulty !== "HARD") {
+      return {
+        success: false,
+        message: "Hints are strictly available ONLY for Hard difficulty questions."
+      };
+    }
+
+    // Deduct 1 credit per hint request on Hard question
+    if (!attempt.hints_used) {
+      attempt.hints_used = {};
+    }
+    attempt.hints_used[question_id] = (attempt.hints_used[question_id] || 0) + 1;
+    attempt.hint_penalty_total = (attempt.hint_penalty_total || 0) + 1;
+
+    this.saveDatabase();
+    this.logAudit(
+      "HINT_USED",
+      `Contestant ${attempt.roll_number} requested hint on Hard question ${question_id} (Question hint count: ${attempt.hints_used[question_id]}, Total penalty: -${attempt.hint_penalty_total} pts).`,
+      attempt.roll_number,
+      attempt_id,
+      { question_id, hint_uses_on_question: attempt.hints_used[question_id], total_penalty: attempt.hint_penalty_total }
+    );
+
+    return {
+      success: true,
+      hint: q.hint || "Analyze the logic flow, boundary conditions, and memory handling carefully.",
+      hints_used_count: attempt.hints_used[question_id],
+      hint_penalty_total: attempt.hint_penalty_total,
+      total_hint_penalty: attempt.hint_penalty_total,
+      message: `Hint unlocked (-1 credit penalty applied). Total hint penalty: -${attempt.hint_penalty_total} pts`
+    };
   }
 
   public saveAnswer(attempt_id: string, question_id: string, option_id: string): { success: boolean; message: string } {
@@ -739,7 +818,7 @@ class ContestDatabase {
 
     if (Date.now() >= new Date(attempt.expires_at).getTime()) {
       this.finalizeAttempt(attempt_id, "TIME_EXPIRED");
-      return { success: false, message: "Time expired." };
+      return { success: false, message: "Time expired. Submission locked." };
     }
 
     attempt.answers[question_id] = option_id;
@@ -810,6 +889,7 @@ class ContestDatabase {
     };
   }
 
+  // Authoritative Final Score Calculation with Negative Marking & Hard Hint Deductions
   private finalizeAttempt(attempt_id: string, final_status: AttemptStatus, reason?: string): boolean {
     const attempt = this.data.attempts[attempt_id];
     if (!attempt) return false;
@@ -824,11 +904,15 @@ class ContestDatabase {
     const actualEnd = Math.min(endTime, expiryTime);
     attempt.time_taken_seconds = Math.max(1, Math.floor((actualEnd - startTime) / 1000));
 
-    let score = 0;
+    let correctPoints = 0;
+    let negativeMarkingPenalty = 0;
     let correctCount = 0;
     let simpleCorrect = 0;
+    let simpleWrong = 0;
     let mediumCorrect = 0;
+    let mediumWrong = 0;
     let hardCorrect = 0;
+    let hardWrong = 0;
     let incorrectCount = 0;
     let unansweredCount = 0;
 
@@ -840,42 +924,72 @@ class ContestDatabase {
       const userChoice = attempt.answers[q.id];
       const mapping = attempt.shuffled_options?.[q.id];
       const correctChoice = mapping ? mapping.correct_display_id : q.correct_option_id;
+
       if (!userChoice) {
+        // Unanswered: receives 0 points, no negative marking penalty
         unansweredCount += 1;
       } else if (userChoice === correctChoice) {
-        score += q.points;
+        // Correct answer: +1 for Simple, +2 for Medium, +3 for Hard
         correctCount += 1;
         if (q.difficulty === "EASY") {
           simpleCorrect += 1;
+          correctPoints += 1;
         } else if (q.difficulty === "MEDIUM") {
           mediumCorrect += 1;
+          correctPoints += 2;
         } else if (q.difficulty === "HARD") {
           hardCorrect += 1;
+          correctPoints += 3;
         }
       } else {
+        // Wrong answer: 0 for Simple, -0.5 for Medium, -1.0 for Hard
         incorrectCount += 1;
+        if (q.difficulty === "EASY") {
+          simpleWrong += 1;
+          // Simple wrong receives 0 penalty
+        } else if (q.difficulty === "MEDIUM") {
+          mediumWrong += 1;
+          negativeMarkingPenalty += 0.5;
+        } else if (q.difficulty === "HARD") {
+          hardWrong += 1;
+          negativeMarkingPenalty += 1.0;
+        }
       }
     }
 
-    const difficultyScore = (simpleCorrect * 1) + (mediumCorrect * 2) + (hardCorrect * 3);
-    const netScore = Math.max(0, score - (attempt.hint_penalty_total || 0));
+    const hintPenalty = attempt.hint_penalty_total || 0;
+    // Final Score = Correct-answer points − Negative-answer penalties − Hint penalties
+    const finalScore = correctPoints - negativeMarkingPenalty - hintPenalty;
 
     if (final_status === "DISQUALIFIED") {
       attempt.score = 0;
+      attempt.max_score = 21;
       attempt.correct_count = 0;
+      attempt.correct_points = 0;
+      attempt.negative_marking_penalty = 0;
       attempt.difficulty_score = 0;
       attempt.simple_correct = 0;
+      attempt.simple_wrong = 0;
       attempt.medium_correct = 0;
+      attempt.medium_wrong = 0;
       attempt.hard_correct = 0;
+      attempt.hard_wrong = 0;
       attempt.incorrect_count = questionsToScore.length;
       attempt.unanswered_count = 0;
     } else {
-      attempt.score = netScore;
+      // Preserve actual calculated score (can be decimal e.g. 11.5, not clamped to 0)
+      attempt.score = finalScore;
+      attempt.max_score = 21;
       attempt.correct_count = correctCount;
-      attempt.difficulty_score = difficultyScore;
+      attempt.correct_points = correctPoints;
+      attempt.negative_marking_penalty = negativeMarkingPenalty;
+      attempt.difficulty_score = finalScore;
       attempt.simple_correct = simpleCorrect;
+      attempt.simple_wrong = simpleWrong;
       attempt.medium_correct = mediumCorrect;
+      attempt.medium_wrong = mediumWrong;
       attempt.hard_correct = hardCorrect;
+      attempt.hard_wrong = hardWrong;
       attempt.incorrect_count = incorrectCount;
       attempt.unanswered_count = unansweredCount;
     }
@@ -893,7 +1007,7 @@ class ContestDatabase {
         : final_status === "ABANDONED"
         ? "ATTEMPT_ABANDONED"
         : "MANUAL_SUBMISSION",
-      `Attempt ${attempt_id} marked as ${final_status}. Correct: ${attempt.correct_count}/10, Difficulty Score: ${attempt.difficulty_score}/21, Raw: ${attempt.score}/155, Time: ${attempt.time_taken_seconds}s. ${reason || ""}`,
+      `Attempt ${attempt_id} marked as ${final_status}. Correct: ${attempt.correct_count}/10, Final Score: ${attempt.score}/21 (Pos: +${attempt.correct_points}, Neg: -${attempt.negative_marking_penalty}, Hints: -${attempt.hint_penalty_total}), Time: ${attempt.time_taken_seconds}s. ${reason || ""}`,
       attempt.roll_number,
       attempt_id
     );
@@ -926,7 +1040,7 @@ class ContestDatabase {
 
     return {
       success: true,
-      message: `Re-attempt successfully authorized for ${roll}. Student can now scan QR and start a fresh 15-minute attempt.`
+      message: `Re-attempt successfully authorized for ${roll}. Student can now scan QR and start a fresh 10-minute attempt.`
     };
   }
 
@@ -953,11 +1067,11 @@ class ContestDatabase {
     return { success: true, message: "Results locked." };
   }
 
-  // --- Leaderboard Generation with 4-Priority Hierarchical Ranking ---
-  // Priority 1: Correct count DESC
-  // Priority 2: Difficulty score DESC (Simple=1, Medium=2, Hard=3)
-  // Priority 3: Completion time ASC
-  // Priority 4: Server submission timestamp ASC
+  // --- Leaderboard Generation with Hierarchical Ranking ---
+  // Ranking Order:
+  // 1. Higher Final Score DESC (e.g. 21, 15, 14.5, 11.5, decimal supported)
+  // 2. Lower Completion Time ASC (seconds)
+  // 3. Earliest Server Submission Timestamp ASC
   public getLeaderboard(isHost = false): {
     results_released: boolean;
     stats: {
@@ -977,13 +1091,19 @@ class ContestDatabase {
       section: string;
       correct_count: number;
       difficulty_score: number;
+      score: number; // Final Score
+      max_score: number;
+      correct_points: number;
+      negative_marking_penalty: number;
+      hint_penalty_total: number;
       simple_correct: number;
+      simple_wrong: number;
       medium_correct: number;
+      medium_wrong: number;
       hard_correct: number;
+      hard_wrong: number;
       incorrect_count: number;
       unanswered_count: number;
-      score: number;
-      max_score: number;
       time_taken_seconds: number;
       time_formatted: string;
       submitted_at: string | null;
@@ -1030,14 +1150,20 @@ class ContestDatabase {
         year: reg.year,
         section: reg.section,
         correct_count: a.correct_count || 0,
-        difficulty_score: a.difficulty_score || 0,
+        difficulty_score: a.score ?? 0, // In new 21-point system, difficulty score = Final Score
+        score: a.score ?? 0,
+        max_score: 21,
+        correct_points: a.correct_points || 0,
+        negative_marking_penalty: a.negative_marking_penalty || 0,
+        hint_penalty_total: a.hint_penalty_total || 0,
         simple_correct: a.simple_correct || 0,
+        simple_wrong: a.simple_wrong || 0,
         medium_correct: a.medium_correct || 0,
+        medium_wrong: a.medium_wrong || 0,
         hard_correct: a.hard_correct || 0,
+        hard_wrong: a.hard_wrong || 0,
         incorrect_count: a.incorrect_count || 0,
         unanswered_count: a.unanswered_count || 0,
-        score: a.score,
-        max_score: a.max_score,
         time_taken_seconds: a.time_taken_seconds,
         time_formatted: `${mins}:${secs}`,
         submitted_at: a.submitted_at,
@@ -1045,21 +1171,17 @@ class ContestDatabase {
       };
     });
 
-    // 4-Priority Hierarchical Ranking Algorithm
+    // Official 3-Tier Hierarchical Ranking Algorithm
+    // Priority 1: Higher Final Score first (decimal supported)
+    // Priority 2: Lower Completion Time first
+    // Priority 3: Server submission timestamp tie-breaker
     entries.sort((a, b) => {
-      // Priority 1: Correct answers count DESCENDING
-      if (b.correct_count !== a.correct_count) {
-        return b.correct_count - a.correct_count;
+      if (b.score !== a.score) {
+        return b.score - a.score;
       }
-      // Priority 2: Difficulty-weighted score DESCENDING
-      if (b.difficulty_score !== a.difficulty_score) {
-        return b.difficulty_score - a.difficulty_score;
-      }
-      // Priority 3: Completion time ASCENDING (Lower time is better)
       if (a.time_taken_seconds !== b.time_taken_seconds) {
         return a.time_taken_seconds - b.time_taken_seconds;
       }
-      // Priority 4: Server submission timestamp ASCENDING
       return (a.submitted_at || "").localeCompare(b.submitted_at || "");
     });
 
@@ -1070,21 +1192,21 @@ class ContestDatabase {
 
     // Stats calculations
     let totalCorrect = 0;
-    let totalDifficulty = 0;
+    let totalScore = 0;
     let totalTime = 0;
     let completedCount = 0;
 
     for (const e of ranked) {
       if (e.status === "SUBMITTED" || e.status === "TIME_EXPIRED") {
         totalCorrect += e.correct_count;
-        totalDifficulty += e.difficulty_score;
+        totalScore += e.score;
         totalTime += e.time_taken_seconds;
         completedCount += 1;
       }
     }
 
     const avgCorrect = completedCount > 0 ? (totalCorrect / completedCount).toFixed(1) : "0.0";
-    const avgDifficulty = completedCount > 0 ? (totalDifficulty / completedCount).toFixed(1) : "0.0";
+    const avgScore = completedCount > 0 ? (totalScore / completedCount).toFixed(1) : "0.0";
     const avgTimeSec = completedCount > 0 ? Math.round(totalTime / completedCount) : 0;
     const avgTimeFormatted = `${Math.floor(avgTimeSec / 60).toString().padStart(2, "0")}:${(avgTimeSec % 60).toString().padStart(2, "0")}`;
 
@@ -1094,7 +1216,7 @@ class ContestDatabase {
         total_participants: totalParticipants,
         completed_count: completedCount,
         average_correct: `${avgCorrect}/10`,
-        average_difficulty_score: `${avgDifficulty}/21`,
+        average_difficulty_score: `${avgScore}/21`,
         average_time_formatted: avgTimeFormatted
       },
       leaderboard: ranked

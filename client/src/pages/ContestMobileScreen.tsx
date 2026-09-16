@@ -61,17 +61,21 @@ interface Question {
   current_output?: string;
   options: { id: string; text: string }[];
   has_hint: boolean;
+  hints_used_count?: number;
+  unlocked_hint?: string;
 }
 
 const OFFICIAL_RULES_LIST = [
   "This is an official Engineering Olympics competition.",
   "You have ONE attempt only.",
-  "Total time is 15 MINUTES.",
-  "There are exactly 10 questions.",
-  "3 questions are EASY (1 point difficulty).",
-  "3 questions are MEDIUM (2 points difficulty).",
-  "4 questions are HARD (3 points difficulty).",
-  "No hints are provided. All debugging and analysis must be performed independently.",
+  "Total time is 10 MINUTES (600 seconds).",
+  "There are exactly 10 questions (3 Simple, 3 Medium, 4 Hard).",
+  "Scoring Rules (Maximum Score = 21, Minimum Theoretical = -5.5):",
+  "• Simple (3 Questions): +1 for correct, 0 for wrong, 0 for unanswered.",
+  "• Medium (3 Questions): +2 for correct, -0.5 negative penalty for wrong, 0 for unanswered.",
+  "• Hard (4 Questions): +3 for correct, -1.0 negative penalty for wrong, 0 for unanswered.",
+  "Negative marking applies only when a final submitted answer is incorrect. Unanswered questions receive 0.",
+  "HINT SYSTEM (HARD QUESTIONS ONLY): Hints are available exclusively on Hard questions. Each hint request costs 1 credit (-1 point penalty). Using a hint again on the same Hard question costs an additional -1 credit. No hints exist for Simple or Medium questions.",
   "Maintain a stable and reliable internet connection throughout the contest.",
   "Do NOT refresh the page.",
   "Do NOT close the browser.",
@@ -108,8 +112,14 @@ export function ContestMobileScreen() {
   const [rulesAccepted, setRulesAccepted] = useState(false);
   const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
 
-  // Timer & Security Monitoring
-  const [remainingSeconds, setRemainingSeconds] = useState(15 * 60);
+  // Hints State
+  const [hintModalOpen, setHintModalOpen] = useState(false);
+  const [requestingHint, setRequestingHint] = useState(false);
+  const [unlockedHints, setUnlockedHints] = useState<Record<string, string>>({});
+  const [hintUsageCounts, setHintUsageCounts] = useState<Record<string, number>>({});
+
+  // Timer & Security Monitoring (10 Minutes = 600s)
+  const [remainingSeconds, setRemainingSeconds] = useState(10 * 60);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
   const [backModalOpen, setBackModalOpen] = useState(false);
@@ -328,8 +338,24 @@ export function ContestMobileScreen() {
         // Check if resuming active attempt or starting new
         if (res.data.existing_attempt) {
           // Resume active
-          setAttemptId(res.data.existing_attempt.attempt_id);
-          setSelectedAnswers(res.data.existing_attempt.answers || {});
+          const att = res.data.existing_attempt;
+          setAttemptId(att.attempt_id);
+          setSelectedAnswers(att.answers || {});
+          try {
+            const sessRes = await axios.get(`/api/contest/session/${att.attempt_id}`);
+            if (sessRes.data.success) {
+              setQuestions(sessRes.data.questions || []);
+              setRemainingSeconds(sessRes.data.remaining_seconds);
+              const hintsMap: Record<string, string> = {};
+              const countsMap: Record<string, number> = {};
+              (sessRes.data.questions || []).forEach((q: any) => {
+                if (q.unlocked_hint) hintsMap[q.id] = q.unlocked_hint;
+                if (q.hints_used_count) countsMap[q.id] = q.hints_used_count;
+              });
+              setUnlockedHints(hintsMap);
+              setHintUsageCounts(countsMap);
+            }
+          } catch {}
           setPhase("ARENA");
         } else {
           // Move to Network Notice -> Rules -> Start
@@ -376,8 +402,16 @@ export function ContestMobileScreen() {
         const now = Date.now();
         const expiry = new Date(res.data.attempt.expires_at).getTime();
         setRemainingSeconds(Math.max(0, Math.floor((expiry - now) / 1000)));
+        const hintsMap: Record<string, string> = {};
+        const countsMap: Record<string, number> = {};
+        (res.data.questions || []).forEach((q: any) => {
+          if (q.unlocked_hint) hintsMap[q.id] = q.unlocked_hint;
+          if (q.hints_used_count) countsMap[q.id] = q.hints_used_count;
+        });
+        setUnlockedHints(hintsMap);
+        setHintUsageCounts(countsMap);
         setPhase("ARENA");
-        toast.success("Official Contest Started! Timer: 15:00");
+        toast.success("Official Contest Started! Timer: 10:00");
       }
     } catch (err: any) {
       playErrorSound();
@@ -446,6 +480,35 @@ export function ContestMobileScreen() {
       });
     } catch {}
     setPhase("ABANDONED");
+  };
+
+  // -------------------------------------------------------------
+  // Hard-Only Hint Request with Server-Side Deductions (-1 Credit)
+  // -------------------------------------------------------------
+  const handleConfirmUseHint = async () => {
+    if (!attemptId || !currentQ || currentQ.difficulty !== "HARD" || requestingHint) return;
+    setRequestingHint(true);
+    try {
+      const res = await axios.post("/api/contest/hint", {
+        attempt_id: attemptId,
+        question_id: currentQ.id
+      });
+      if (res.data.success) {
+        playHintSound();
+        setUnlockedHints((prev) => ({ ...prev, [currentQ.id]: res.data.hint }));
+        setHintUsageCounts((prev) => ({ ...prev, [currentQ.id]: res.data.hints_used_count }));
+        toast.success("Hint Unlocked! -1 credit applied to your score.", { icon: "💡" });
+        setHintModalOpen(false);
+      } else {
+        playErrorSound();
+        toast.error(res.data.reason || "Failed to unlock hint.");
+      }
+    } catch (err: any) {
+      playErrorSound();
+      toast.error(err.response?.data?.reason || "Hint request failed.");
+    } finally {
+      setRequestingHint(false);
+    }
   };
 
   // Timer format mm:ss
@@ -610,7 +673,7 @@ export function ContestMobileScreen() {
 
           <div className="text-xs sm:text-sm text-slate-300 space-y-3">
             <p className="text-slate-300">
-              This contest requires a stable internet connection throughout the 15-minute examination.
+              This contest requires a stable internet connection throughout the 10-minute examination.
             </p>
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2.5 font-medium">
               <div className="flex items-center gap-2 text-emerald-400">
@@ -627,7 +690,7 @@ export function ContestMobileScreen() {
               </div>
             </div>
             <p className="text-[11px] text-slate-400 italic">
-              If your connection is unstable, answers may take longer to synchronize. The original server-side 15-minute expiry time remains unchanged.
+              If your connection is unstable, answers may take longer to synchronize. The original server-side 10-minute expiry time remains unchanged.
             </p>
           </div>
 
@@ -657,7 +720,7 @@ export function ContestMobileScreen() {
               OFFICIAL CONTEST RULES
             </h2>
             <p className="text-xs text-amber-400 font-semibold">
-              Read all rules carefully before initiating the 15-minute timer
+              Read all rules carefully before initiating the 10-minute timer
             </p>
           </div>
 
@@ -792,7 +855,7 @@ export function ContestMobileScreen() {
               Your contest session was automatically terminated and disqualified because you repeatedly left the contest window or switched applications.
             </p>
             <div className="bg-red-950/40 border border-red-500/30 rounded-xl p-3 text-xs text-red-300 font-mono mt-3">
-              Violation Logged to Host Audit Trail · Score: 0 / 155
+              Violation Logged to Host Audit Trail · Score: 0 / 21
             </div>
             <p className="text-xs text-slate-400 pt-2">
               Report immediately to the Event Host in MG-7 Core Block for verification.
@@ -831,7 +894,7 @@ export function ContestMobileScreen() {
           </p>
         </div>
 
-        {/* Server Authoritative 15-Minute Countdown */}
+        {/* Server Authoritative 10-Minute Countdown */}
         <div className="flex items-center gap-3">
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-sm sm:text-base border ${
@@ -865,14 +928,18 @@ export function ContestMobileScreen() {
 
               <span
                 className={`text-[10px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider ${
-                  currentQ.points === 20
+                  currentQ.difficulty === "HARD"
                     ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
-                    : currentQ.points === 15
+                    : currentQ.difficulty === "MEDIUM"
                     ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
                     : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                 }`}
               >
-                {currentQ.points} PTS
+                {currentQ.difficulty === "HARD"
+                  ? "+3 PTS (Wrong: -1.0)"
+                  : currentQ.difficulty === "MEDIUM"
+                  ? "+2 PTS (Wrong: -0.5)"
+                  : "+1 PT (Wrong: 0)"}
               </span>
             </div>
 
@@ -927,6 +994,39 @@ export function ContestMobileScreen() {
                   </div>
                 )}
               </div>
+
+              {/* Hard-Only Hint System */}
+              {currentQ.difficulty === "HARD" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  {unlockedHints[currentQ.id] ? (
+                    <div className="bg-amber-950/20 border border-amber-500/40 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                          <Lightbulb className="w-4 h-4 text-amber-400" />
+                          Hard Question Hint ({hintUsageCounts[currentQ.id] || 1} Use = -{hintUsageCounts[currentQ.id] || 1} Pt Penalty)
+                        </span>
+                        <button
+                          onClick={() => setHintModalOpen(true)}
+                          className="text-[10px] font-bold text-amber-300 hover:text-amber-200 underline font-mono cursor-pointer"
+                        >
+                          Request Again (-1 credit)
+                        </button>
+                      </div>
+                      <div className="text-xs text-amber-100 font-mono bg-slate-950/80 p-2.5 rounded-lg border border-amber-500/20 leading-relaxed">
+                        💡 {unlockedHints[currentQ.id]}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setHintModalOpen(true)}
+                      className="w-full py-2.5 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                    >
+                      <Lightbulb className="w-4 h-4 text-amber-400" />
+                      💡 Use Hint (-1 credit)
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Options List (Large Mobile Tap Targets) */}
@@ -1122,6 +1222,47 @@ export function ContestMobileScreen() {
                 className="py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black uppercase"
               >
                 {loading ? "Submitting..." : "CONFIRM SUBMIT"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: Hard Hint Confirmation & Credit Penalty Warning */}
+      {/* ------------------------------------------------------------- */}
+      {hintModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-amber-500/60 rounded-2xl p-6 max-w-sm w-full space-y-4 text-center">
+            <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto">
+              <Lightbulb className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-amber-400 uppercase">
+                {(hintUsageCounts[currentQ?.id || ""] || 0) > 0 ? "REQUEST REPEAT HINT?" : "UNLOCK HARD HINT?"}
+              </h3>
+              <p className="text-xs text-slate-300">
+                Unlocking this hint will immediately deduct <strong className="text-amber-400">1 credit (-1 point)</strong> from your contest score.
+              </p>
+              {(hintUsageCounts[currentQ?.id || ""] || 0) > 0 && (
+                <p className="text-[11px] text-orange-400 font-semibold pt-1">
+                  You have already used {hintUsageCounts[currentQ?.id || ""]} hint(s) on this question (-{hintUsageCounts[currentQ?.id || ""]} pts). This request costs an additional -1 point.
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                onClick={() => setHintModalOpen(false)}
+                className="py-2.5 px-4 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold uppercase"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={handleConfirmUseHint}
+                disabled={requestingHint}
+                className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black uppercase tracking-wider"
+              >
+                {requestingHint ? "DEDUCTING..." : "CONFIRM (-1 PT)"}
               </button>
             </div>
           </div>

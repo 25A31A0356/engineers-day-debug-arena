@@ -151,7 +151,7 @@ export function PublicLeaderboardScreen() {
 
           <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-center space-y-0.5 backdrop-blur-md">
             <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center justify-center gap-1">
-              <Zap className="w-3 h-3 text-blue-400" /> Avg Difficulty
+              <Zap className="w-3 h-3 text-blue-400" /> Avg Final Score
             </span>
             <p className="text-lg font-black text-blue-400 font-mono">{stats.average_difficulty_score}</p>
           </div>
@@ -218,7 +218,7 @@ export function PublicLeaderboardScreen() {
               </div>
 
               <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Difficulty Score</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Final Score</span>
                 <p className="text-base font-black text-blue-400 font-mono">
                   {userPosition.difficulty_score} / 21
                 </p>
@@ -327,7 +327,7 @@ export function PublicLeaderboardScreen() {
                         <strong className="text-emerald-400">{top2.correct_count}/10</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] text-slate-400 uppercase block">Difficulty</span>
+                        <span className="text-[9px] text-slate-400 uppercase block">Final Score</span>
                         <strong className="text-blue-400">{top2.difficulty_score}/21</strong>
                       </div>
                       <div>
@@ -355,7 +355,7 @@ export function PublicLeaderboardScreen() {
                       <strong className="text-emerald-400 text-sm">{top1.correct_count}/10</strong>
                     </div>
                     <div>
-                      <span className="text-[9px] text-slate-300 uppercase block">Difficulty</span>
+                      <span className="text-[9px] text-slate-300 uppercase block">Final Score</span>
                       <strong className="text-amber-300 text-sm">{top1.difficulty_score}/21</strong>
                     </div>
                     <div>
@@ -383,7 +383,7 @@ export function PublicLeaderboardScreen() {
                         <strong className="text-emerald-400">{top3.correct_count}/10</strong>
                       </div>
                       <div>
-                        <span className="text-[9px] text-slate-400 uppercase block">Difficulty</span>
+                        <span className="text-[9px] text-slate-400 uppercase block">Final Score</span>
                         <strong className="text-blue-400">{top3.difficulty_score}/21</strong>
                       </div>
                       <div>
@@ -414,7 +414,7 @@ export function PublicLeaderboardScreen() {
                       <th className="p-3.5">Rank</th>
                       <th className="p-3.5">Contestant</th>
                       <th className="p-3.5">Correct</th>
-                      <th className="p-3.5">Difficulty Score</th>
+                      <th className="p-3.5">Final Score</th>
                       <th className="p-3.5">Time</th>
                     </tr>
                   </thead>
@@ -470,13 +470,12 @@ export function PublicLeaderboardScreen() {
         {/* Ranking Policy Disclosure Footer */}
         <div className="bg-slate-900/60 border border-slate-800/60 rounded-xl p-3.5 text-[11px] text-slate-400 space-y-1">
           <p className="font-bold text-amber-400 uppercase flex items-center gap-1.5">
-            <HelpCircle className="w-3.5 h-3.5" /> Official 4-Tier Tie-Breaker Ranking Policy:
+            <HelpCircle className="w-3.5 h-3.5" /> Official Tie-Breaker Ranking Policy:
           </p>
           <p className="leading-relaxed">
-            1. <strong>Higher Correct Answers</strong> (out of 10) &nbsp;→&nbsp;
-            2. <strong>Higher Difficulty-Weighted Score</strong> (Simple=1, Med=2, Hard=3, Max 21) &nbsp;→&nbsp;
-            3. <strong>Lower Completion Time</strong> (MM:SS) &nbsp;→&nbsp;
-            4. <strong>Earliest Server Submission Timestamp</strong>.
+            1. <strong>Higher Final Score</strong> (Simple=+1/0, Med=+2/-0.5, Hard=+3/-1.0, Hints=-1 each, Max 21) &nbsp;→&nbsp;
+            2. <strong>Lower Completion Time</strong> (MM:SS) &nbsp;→&nbsp;
+            3. <strong>Earliest Server Submission Timestamp</strong>.
           </p>
         </div>
 

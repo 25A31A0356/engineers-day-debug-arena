@@ -822,7 +822,7 @@ export function HostAdminScreen() {
                             </span>
                           </td>
                           <td className="p-3.5 font-bold text-white">
-                            {a.score} / 155
+                            {a.score} / 21
                           </td>
                           <td className="p-3.5">
                             <span className={a.tab_switch_count > 0 ? "text-red-400 font-bold" : "text-slate-500"}>
@@ -1010,8 +1010,8 @@ export function HostAdminScreen() {
                           <th className="p-3">Simple (/3)</th>
                           <th className="p-3">Medium (/3)</th>
                           <th className="p-3">Hard (/4)</th>
-                          <th className="p-3">Diff Score</th>
-                          <th className="p-3">Raw Pts</th>
+                          <th className="p-3">Final Score (/21)</th>
+                          <th className="p-3">Hint Pen</th>
                           <th className="p-3">Time</th>
                           <th className="p-3">Status</th>
                         </tr>
@@ -1038,8 +1038,8 @@ export function HostAdminScreen() {
                             <td className="p-3 text-emerald-300 font-bold">{entry.simple_correct}/3</td>
                             <td className="p-3 text-blue-300 font-bold">{entry.medium_correct}/3</td>
                             <td className="p-3 text-purple-300 font-bold">{entry.hard_correct}/4</td>
-                            <td className="p-3 font-black text-blue-400 text-sm">{entry.difficulty_score}/21</td>
-                            <td className="p-3 text-slate-400">{entry.score}/155</td>
+                            <td className="p-3 font-black text-amber-400 text-sm">{entry.score}/21</td>
+                            <td className="p-3 text-red-400 font-mono">-{entry.hint_penalty_total || 0}</td>
                             <td className="p-3 text-purple-300 font-bold">{entry.time_formatted}</td>
                             <td className="p-3">
                               <span
@@ -1550,7 +1550,7 @@ export function HostAdminScreen() {
                   <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black flex items-center justify-center shrink-0">
                     3
                   </div>
-                  <span>Read the 22 rules and start your official 15-minute exam</span>
+                  <span>Read the 22 rules and start your official 10-minute exam</span>
                 </div>
               </div>
 
