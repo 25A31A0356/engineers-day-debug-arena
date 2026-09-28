@@ -9,6 +9,10 @@ interface PragatiLogoProps {
   theme?: "dark" | "light" | "gold";
 }
 
+const baseUrl = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+const CREST_IMG_SRC = `${baseUrl}/pragati_crest.jpg`;
+const CREST_FALLBACK_PNG = `${baseUrl}/pragati_crest.png`;
+
 export const PragatiLogo: React.FC<PragatiLogoProps> = ({
   className = "",
   variant = "header",
@@ -17,6 +21,13 @@ export const PragatiLogo: React.FC<PragatiLogoProps> = ({
   subtitleText = "DEPARTMENT OF MECHANICAL ENGINEERING",
   theme = "dark"
 }) => {
+  const handleImgError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.currentTarget;
+    if (target.src !== CREST_FALLBACK_PNG) {
+      target.src = CREST_FALLBACK_PNG;
+    }
+  };
+
   // Emblem image size mappings
   const emblemSizes = {
     sm: "w-9 h-9 sm:w-10 sm:h-10",
@@ -46,7 +57,8 @@ export const PragatiLogo: React.FC<PragatiLogoProps> = ({
     return (
       <div className={`relative inline-flex items-center justify-center rounded-full bg-white p-0.5 border-2 border-amber-400 shadow-lg shadow-amber-500/20 overflow-hidden ${className}`}>
         <img
-          src="/pragati_crest.jpg"
+          src={CREST_IMG_SRC}
+          onError={handleImgError}
           alt="Pragati University Crest"
           className={`${emblemSizes[size]} object-cover rounded-full`}
         />
@@ -63,7 +75,8 @@ export const PragatiLogo: React.FC<PragatiLogoProps> = ({
           <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 rounded-full blur-md opacity-75 group-hover:opacity-100 transition duration-300"></div>
           <div className="relative bg-white p-1 rounded-full border-2 border-amber-400 shadow-2xl shadow-amber-500/25 overflow-hidden">
             <img
-              src="/pragati_crest.jpg"
+              src={CREST_IMG_SRC}
+              onError={handleImgError}
               alt="Pragati University Crest"
               className={`${emblemSizes[size]} object-cover rounded-full transition-transform duration-300 group-hover:scale-105`}
             />
@@ -96,7 +109,8 @@ export const PragatiLogo: React.FC<PragatiLogoProps> = ({
       <div className={`inline-flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl shadow-md ${className}`}>
         <div className="rounded-full bg-white p-0.5 border border-amber-400 shrink-0 overflow-hidden">
           <img
-            src="/pragati_crest.jpg"
+            src={CREST_IMG_SRC}
+            onError={handleImgError}
             alt="Pragati University Crest"
             className="w-7 h-7 object-cover rounded-full"
           />
@@ -121,7 +135,8 @@ export const PragatiLogo: React.FC<PragatiLogoProps> = ({
         <div className="absolute -inset-1 bg-gradient-to-r from-amber-400/50 via-yellow-400/30 to-amber-500/40 rounded-full blur-sm opacity-80 group-hover:opacity-100 transition duration-300"></div>
         <div className="relative p-0.5 rounded-full bg-white border-2 border-amber-400 shadow-xl shadow-amber-500/20 overflow-hidden flex items-center justify-center">
           <img
-            src="/pragati_crest.jpg"
+            src={CREST_IMG_SRC}
+            onError={handleImgError}
             alt="Pragati University Crest"
             className={`${emblemSizes[size]} object-cover rounded-full transition-transform duration-300 group-hover:scale-105`}
           />
