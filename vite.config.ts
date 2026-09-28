@@ -229,6 +229,7 @@ const plugins = [
 ];
 
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH || (process.env.GITHUB_PAGES ? "/engineers-day-debug-arena/" : "./"),
   plugins,
   resolve: {
     alias: {
