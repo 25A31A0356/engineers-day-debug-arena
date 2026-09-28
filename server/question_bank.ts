@@ -1,4 +1,4 @@
-import { QuestionDef } from "./db";
+import { QuestionDef } from "@shared/types";
 
 // =========================================================================================
 // ENGINEERING OLYMPICS — 105+ QUESTION FAMILY MASTER BANK (1,221 UNIQUE QUESTIONS)

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import axios from "axios";
 import QRCode from "qrcode";
 import {
   Copy,
@@ -37,16 +38,15 @@ export function QRCodeModal({ isOpen, onClose }: QRCodeModalProps) {
     async function fetchNetworkInfo() {
       try {
         setIsLoading(true);
-        const res = await fetch("/api/network-ip");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ips && data.ips.length > 0) {
-            setNetworkIps(data.ips);
-            const defaultPort = window.location.port || "3000";
-            const lanUrl = `http://${data.ips[0]}:${defaultPort}`;
-            setSelectedUrl(lanUrl);
-            return;
-          }
+        const res = await axios.get("/api/network-ip");
+        if (res.data && res.data.ips && res.data.ips.length > 0) {
+          setNetworkIps(res.data.ips);
+          const defaultPort = window.location.port || "3000";
+          const lanUrl = window.location.origin.includes("github.io")
+            ? window.location.origin + window.location.pathname
+            : `http://${res.data.ips[0]}:${defaultPort}`;
+          setSelectedUrl(lanUrl);
+          return;
         }
       } catch (err) {
         console.warn("Could not fetch network IP, falling back to window.location", err);
@@ -55,7 +55,7 @@ export function QRCodeModal({ isOpen, onClose }: QRCodeModalProps) {
       }
 
       // Fallback to current browser origin
-      const currentOrigin = window.location.origin;
+      const currentOrigin = window.location.origin + window.location.pathname;
       setSelectedUrl(currentOrigin);
     }
 
